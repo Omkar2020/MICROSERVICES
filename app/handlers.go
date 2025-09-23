@@ -3,37 +3,52 @@ package app
 import (
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"net/http"
+
+	"github.com/Omkar2020/MICROSERVICES/service"
 )
 
-type Customers struct {
-	Name    string `json:"name" xml:"name"`
-	Email   string `json:"email" xml:"email"`
-	City    string `json:"city" xml:"city"`
-	ZipCode string `json:"zip_code" xml:"zip_code"`
+// Define CustomerResponse at the TOP of the file
+type CustomerResponse struct {
+	ID          string `json:"id" xml:"id"`
+	Name        string `json:"name" xml:"name"`
+	City        string `json:"city" xml:"city"`
+	ZipCode     string `json:"zip_code" xml:"zip_code"`
+	DateOfBirth string `json:"date_of_birth" xml:"date_of_birth"`
+	Status      string `json:"status" xml:"status"`
 }
 
-func greet(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "Hello, Again Go!")
+type CustomerHandler struct {
+	service service.CustomerService
 }
 
-func getAllCustomers(w http.ResponseWriter, r *http.Request) {
-	// fmt.Fprint(w, "Hello, Again Go!")
-
-	customers := []Customers{
-		{Name: "Ashish", Email: "ashish@example.com", City: "Pune", ZipCode: "411001"},
-		{Name: "John", Email: "john@example.com", City: "New York", ZipCode: "10001"},
-		{Name: "Jane", Email: "jane@example.com", City: "London", ZipCode: "E1 6AN"},
+func (ch *CustomerHandler) getAllCustomers(w http.ResponseWriter, r *http.Request) {
+	// Get customers from service
+	customers, err := ch.service.GetAllCustomers()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	//w.Header().Set("Content-Type", "application/json")
-	//json.NewEncoder(w).Encode(customers)
-	if r.Header.Get("Content-Type") == "application/xml" {
+
+	// Convert domain.Customer to CustomerResponse
+	customerResponses := make([]CustomerResponse, 0)
+	for _, customer := range customers {
+		customerResponses = append(customerResponses, CustomerResponse{
+			ID:          customer.ID,
+			Name:        customer.Name,
+			City:        customer.City,
+			ZipCode:     customer.Zipcode,
+			DateOfBirth: customer.DateofBirth,
+			Status:      customer.Status,
+		})
+	}
+
+	// Set response content type based on request header
+	if r.Header.Get("Accept") == "application/xml" {
 		w.Header().Set("Content-Type", "application/xml")
-		xml.NewEncoder(w).Encode(customers)
+		xml.NewEncoder(w).Encode(customerResponses)
 	} else {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(customers)
+		json.NewEncoder(w).Encode(customerResponses)
 	}
-
 }
