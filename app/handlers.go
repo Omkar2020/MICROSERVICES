@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"net/http"
+	"regexp"
 
 	"github.com/Omkar2020/MICROSERVICES/service"
+	"github.com/gorilla/mux"
 )
 
-// Define CustomerResponse at the TOP of the file
 type CustomerResponse struct {
 	ID          string `json:"id" xml:"id"`
 	Name        string `json:"name" xml:"name"`
@@ -23,14 +24,12 @@ type CustomerHandler struct {
 }
 
 func (ch *CustomerHandler) getAllCustomers(w http.ResponseWriter, r *http.Request) {
-	// Get customers from service
 	customers, err := ch.service.GetAllCustomers()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Convert domain.Customer to CustomerResponse
 	customerResponses := make([]CustomerResponse, 0)
 	for _, customer := range customers {
 		customerResponses = append(customerResponses, CustomerResponse{
@@ -43,7 +42,6 @@ func (ch *CustomerHandler) getAllCustomers(w http.ResponseWriter, r *http.Reques
 		})
 	}
 
-	// Set response content type based on request header
 	if r.Header.Get("Accept") == "application/xml" {
 		w.Header().Set("Content-Type", "application/xml")
 		xml.NewEncoder(w).Encode(customerResponses)
@@ -51,4 +49,31 @@ func (ch *CustomerHandler) getAllCustomers(w http.ResponseWriter, r *http.Reques
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(customerResponses)
 	}
+}
+
+func (ch *CustomerHandler) getCustomer(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+
+	// Validate numeric ID using regex
+	matched, _ := regexp.MatchString(`^\d+$`, idStr)
+	if !matched {
+		http.Error(w, "Customer ID must be numeric", http.StatusBadRequest)
+		return
+	}
+
+	// Pass the string ID directly to service
+	customer, err := ch.service.GetCustomerByID(idStr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if customer == nil {
+		http.Error(w, "Customer not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(customer)
 }
